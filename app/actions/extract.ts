@@ -24,27 +24,23 @@ export type PostalResult = {
   town: string
 }
 
+// Address → postal code. zipcloud only does zip→address, so we use excelapi for
+// the reverse, then enrich the resulting code through zipcloud for a clean
+// address + kana reading. Needs at least ward/town level — a bare city (横浜市)
+// maps to thousands of codes and can't resolve.
 export async function lookupPostalByAddress(
-  prefecture: string,
-  city?: string
+  address: string
 ): Promise<{ results?: PostalResult[]; error?: string }> {
-  const address = [prefecture, city].filter(Boolean).join("").trim()
-  if (!address) return { error: "Select a prefecture" }
+  const q = (address ?? "").trim()
+  if (!q) return { error: "住所を入力してください" }
   try {
-    const res = await fetch(
-      `https://zipcloud.ibsnet.co.jp/api/search?address=${encodeURIComponent(address)}&limit=20`
-    )
-    const data = await res.json()
-    if (!data.results) return { error: "No results found" }
-    const results: PostalResult[] = data.results.map((r: Record<string, string>) => ({
-      zipcode:    r.zipcode,
-      address:    r.address1 + r.address2 + r.address3,
-      reading:    r.kana1 + r.kana2 + r.kana3,
-      prefecture: r.address1,
-      city:       r.address2,
-      town:       r.address3,
-    }))
-    return { results }
+    const res = await fetch(`https://api.excelapi.org/post/zipcode?address=${encodeURIComponent(q)}`)
+    const zip = (await res.text()).trim().replace(/[^0-9]/g, "")
+    if (zip.length !== 7) {
+      return { error: "郵便番号を特定できませんでした。区・町名まで入力してください（例: 横浜市西区みなとみらい）。" }
+    }
+    // enrich via zipcloud for the full kanji address + kana reading
+    return await lookupPostal(zip)
   } catch (e) {
     return { error: String(e) }
   }
