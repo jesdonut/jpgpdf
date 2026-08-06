@@ -8,8 +8,9 @@ import type { MsgKey } from "@/lib/i18n/keys"
 // A tiny checklist for a move: did we call electricity / gas / water, and on
 // what date. Scratchpad-style (one worker at a time), persisted in the browser.
 // Rendered once per address (move-out / move-in) via `storageKey` + `title`.
-// Gas also carries 立ち会い (technician attendance): required/not, and a time.
-type Row = { called: boolean; date: string; tachiai?: "req" | "no"; tachiaiAt?: string }
+// Gas also carries 立ち会い (technician attendance): required/not, and a time
+// window (from–to, e.g. 9:00–12:00).
+type Row = { called: boolean; date: string; tachiai?: "req" | "no"; tachiaiFrom?: string; tachiaiTo?: string }
 type State = { electricity: Row; gas: Row; water: Row }
 const EMPTY: State = {
   electricity: { called: false, date: "" },
@@ -49,18 +50,19 @@ export default function UtilityTracker(
   }
 
   const anySet = ROWS.some(r => state[r.id].called || state[r.id].date)
-    || !!state.gas.tachiai || !!state.gas.tachiaiAt
+    || !!state.gas.tachiai || !!state.gas.tachiaiFrom || !!state.gas.tachiaiTo
 
   // e.g.  電気　使用停止　2026-08-17   (one line per utility that has a date)
-  // Gas appends 立会 info:  ガス　使用開始　2026-08-25　立会必要　2026-08-25T10:00
+  // Gas appends 立会:  ガス　使用開始　2026-08-25　立会い必要　9:00〜12:00
   function copy() {
     const g = state.gas
+    const window = [g.tachiaiFrom, g.tachiaiTo].filter(Boolean).join("〜")
     const lines = ROWS
-      .filter(r => state[r.id].date || (r.id === "gas" && (g.tachiai || g.tachiaiAt)))
+      .filter(r => state[r.id].date || (r.id === "gas" && (g.tachiai || window)))
       .map(r => {
         let line = `${r.jp}　${term}${state[r.id].date ? "　" + state[r.id].date : ""}`
         if (r.id === "gas") {
-          if (g.tachiai === "req") line += `　立会い必要${g.tachiaiAt ? "　" + g.tachiaiAt : ""}`
+          if (g.tachiai === "req") line += `　立会い必要${window ? "　" + window : ""}`
           else if (g.tachiai === "no") line += "　立会いなし"
         }
         return line
@@ -134,12 +136,21 @@ export default function UtilityTracker(
                     </button>
                   ))}
                   {row.tachiai === "req" && (
-                    <input
-                      type="time"
-                      value={row.tachiaiAt ?? ""}
-                      onChange={e => set("gas", { tachiaiAt: e.target.value })}
-                      className="min-w-0 bg-[var(--bg-2)] border border-[var(--border)] rounded px-1.5 py-1 text-[0.7rem] text-[var(--text)] outline-none focus:border-[var(--text-2)]"
-                    />
+                    <span className="flex items-center gap-1">
+                      <input
+                        type="time"
+                        value={row.tachiaiFrom ?? ""}
+                        onChange={e => set("gas", { tachiaiFrom: e.target.value })}
+                        className="min-w-0 bg-[var(--bg-2)] border border-[var(--border)] rounded px-1.5 py-1 text-[0.7rem] text-[var(--text)] outline-none focus:border-[var(--text-2)]"
+                      />
+                      <span className="text-[var(--text-3)] text-[0.7rem]">〜</span>
+                      <input
+                        type="time"
+                        value={row.tachiaiTo ?? ""}
+                        onChange={e => set("gas", { tachiaiTo: e.target.value })}
+                        className="min-w-0 bg-[var(--bg-2)] border border-[var(--border)] rounded px-1.5 py-1 text-[0.7rem] text-[var(--text)] outline-none focus:border-[var(--text-2)]"
+                      />
+                    </span>
                   )}
                 </div>
               )}
