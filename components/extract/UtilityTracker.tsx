@@ -49,6 +49,26 @@ export default function UtilityTracker(
     save({ ...state, [id]: { ...state[id], ...patch } })
   }
 
+  // Time picker with minutes limited to :00 / :30. Choosing an hour defaults the
+  // minutes to 00; clearing the hour clears the value.
+  const timeField = (val: string, onChange: (v: string) => void) => {
+    const [hh, mm] = (val || "").split(":")
+    const sel = "bg-[var(--bg-2)] border border-[var(--border)] rounded px-1 py-1 text-[0.7rem] text-[var(--text)] outline-none focus:border-[var(--text-2)]"
+    return (
+      <span className="flex items-center gap-0.5">
+        <select className={sel} value={hh ?? ""} onChange={e => onChange(e.target.value ? `${e.target.value}:${mm || "00"}` : "")}>
+          <option value="">--</option>
+          {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map(h => <option key={h} value={h}>{h}</option>)}
+        </select>
+        <span className="text-[var(--text-3)] text-[0.7rem]">:</span>
+        <select className={sel} value={mm || "00"} onChange={e => onChange(`${hh || "00"}:${e.target.value}`)}>
+          <option value="00">00</option>
+          <option value="30">30</option>
+        </select>
+      </span>
+    )
+  }
+
   const anySet = ROWS.some(r => state[r.id].called || state[r.id].date)
     || !!state.gas.tachiai || !!state.gas.tachiaiFrom || !!state.gas.tachiaiTo
 
@@ -137,19 +157,9 @@ export default function UtilityTracker(
                   ))}
                   {row.tachiai === "req" && (
                     <span className="flex items-center gap-1">
-                      <input
-                        type="time"
-                        value={row.tachiaiFrom ?? ""}
-                        onChange={e => set("gas", { tachiaiFrom: e.target.value })}
-                        className="min-w-0 bg-[var(--bg-2)] border border-[var(--border)] rounded px-1.5 py-1 text-[0.7rem] text-[var(--text)] outline-none focus:border-[var(--text-2)]"
-                      />
+                      {timeField(row.tachiaiFrom ?? "", v => set("gas", { tachiaiFrom: v }))}
                       <span className="text-[var(--text-3)] text-[0.7rem]">〜</span>
-                      <input
-                        type="time"
-                        value={row.tachiaiTo ?? ""}
-                        onChange={e => set("gas", { tachiaiTo: e.target.value })}
-                        className="min-w-0 bg-[var(--bg-2)] border border-[var(--border)] rounded px-1.5 py-1 text-[0.7rem] text-[var(--text)] outline-none focus:border-[var(--text-2)]"
-                      />
+                      {timeField(row.tachiaiTo ?? "", v => set("gas", { tachiaiTo: v }))}
                     </span>
                   )}
                 </div>
