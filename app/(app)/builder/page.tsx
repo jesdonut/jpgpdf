@@ -3,7 +3,6 @@
 import { useRef, useState } from "react"
 import BuilderTable, { type BuilderTableHandle } from "@/components/builder/BuilderTable"
 import TemplatePanel from "@/components/builder/TemplatePanel"
-import RirekishoTab from "@/components/builder/RirekishoTab"
 import { extractVars } from "@/components/builder/templateUtils"
 import type { ColDef, Row } from "@/components/builder/types"
 import { PageHeader, PillTabs, ToolContent } from "@/components/PageHeader"
@@ -22,7 +21,7 @@ export default function BuilderPage() {
   const [cols, setCols] = useState<ColDef[]>(DEFAULT_COLS)
   const [rows, setRows] = useState<Row[]>(DEFAULT_ROWS)
   const [template, setTemplate] = useState("")
-  const [tab, setTab] = useState<"table" | "versions" | "rirekisho">("table")
+  const [tab, setTab] = useState<"table" | "versions">("table")
   const tableRef = useRef<BuilderTableHandle>(null)
 
   function handleChange(newCols: ColDef[], newRows: Row[]) {
@@ -65,12 +64,11 @@ export default function BuilderPage() {
             options={[
               { value: "table"     as const, label: t("builder.tabTable") },
               { value: "versions"  as const, label: t("builder.tabVersions"), dot: hasTemplate },
-              { value: "rirekisho" as const, label: "履歴書" },
             ]}
             value={tab}
             onChange={setTab}
           />
-          {tab !== "rirekisho" && (
+          {(
             <>
               <button onClick={() => tableRef.current?.addCol()}         className="text-[0.72rem] text-[var(--text-3)] hover:text-[var(--text)] transition-colors">+ Column</button>
               <button onClick={() => tableRef.current?.addComputedCol()} className="text-[0.72rem] text-[var(--highlight-text)] hover:opacity-80 transition-opacity font-medium">+ Output column</button>
@@ -82,9 +80,7 @@ export default function BuilderPage() {
       } />
 
       <ToolContent className="overflow-auto">
-        {tab === "rirekisho" ? (
-          <RirekishoTab />
-        ) : tab === "table" ? (
+        {tab === "table" ? (
           <BuilderTable ref={tableRef} cols={cols} rows={rows} onChange={handleChange} />
         ) : (
           <div className="h-full flex flex-col">
