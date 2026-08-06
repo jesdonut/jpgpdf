@@ -58,7 +58,7 @@ export default function UtilityTracker(
       <span className="flex items-center gap-0.5">
         <select className={sel} value={hh ?? ""} onChange={e => onChange(e.target.value ? `${e.target.value}:${mm || "00"}` : "")}>
           <option value="">--</option>
-          {Array.from({ length: 24 }, (_, i) => String(i).padStart(2, "0")).map(h => <option key={h} value={h}>{h}</option>)}
+          {Array.from({ length: 13 }, (_, i) => String(i + 7).padStart(2, "0")).map(h => <option key={h} value={h}>{h}</option>)}
         </select>
         <span className="text-[var(--text-3)] text-[0.7rem]">:</span>
         <select className={sel} value={mm || "00"} onChange={e => onChange(`${hh || "00"}:${e.target.value}`)}>
