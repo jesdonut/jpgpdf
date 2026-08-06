@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { ThemeProvider } from "@/components/ThemeProvider"
+import { LanguageProvider } from "@/lib/i18n"
 import Nav from "@/components/Nav"
 import PostHogProvider from "@/components/PostHogProvider"
 import NoRightClick from "@/components/NoRightClick"
@@ -52,8 +53,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ServiceWorker />
         <PostHogProvider>
           <ThemeProvider>
-            <Nav />
-            {children}
+            <LanguageProvider>
+              <Nav />
+              {children}
+            </LanguageProvider>
           </ThemeProvider>
         </PostHogProvider>
       </body>

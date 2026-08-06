@@ -5,7 +5,7 @@ import Script from "next/script"
 import { cn } from "@/lib/cn"
 import { PageHeader, PillTabs, ToolContent } from "@/components/PageHeader"
 import { Icon } from "@/components/Icon"
-import RenameTab from "@/components/pdf/RenameTab"
+import { useT } from "@/lib/i18n"
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────
 
@@ -154,9 +154,44 @@ function CropModal({ imgSrc, onApply, onCancel, cropperReady }: {
 type MergeEntry = { file: File; rotation: number; editedBlob: Blob | null }
 const MERGE_SAVED_KEY = "pdf_saved_names"
 
-function MergeTab({ cropperReady }: { cropperReady: boolean }) {
+// Re-render every page as a JPEG at the given quality and rebuild the PDF —
+// shrinks scan-heavy files. Shared by the Merge download option.
+type Quality = "high" | "balanced" | "small"
+const QUALITY: Record<Quality, { scale: number; jpeg: number; labelKey: "pdf.qualityHigh" | "pdf.qualityBalanced" | "pdf.qualitySmall" }> = {
+  high:     { scale: 2.0, jpeg: 0.90, labelKey: "pdf.qualityHigh" },
+  balanced: { scale: 1.5, jpeg: 0.78, labelKey: "pdf.qualityBalanced" },
+  small:    { scale: 1.2, jpeg: 0.62, labelKey: "pdf.qualitySmall" },
+}
+
+async function compressPdfBytes(bytes: Uint8Array, quality: Quality): Promise<Uint8Array> {
+  const { scale, jpeg } = QUALITY[quality]
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const pdfjsLib = (window as any).pdfjsLib
+  const pdfSrc = await pdfjsLib.getDocument({ data: new Uint8Array(bytes) }).promise
+  const { PDFDocument } = await import("pdf-lib")
+  const outDoc = await PDFDocument.create()
+  for (let p = 1; p <= pdfSrc.numPages; p++) {
+    const page = await pdfSrc.getPage(p)
+    const vp0  = page.getViewport({ scale: 1 })
+    const vp   = page.getViewport({ scale })
+    const canvas = document.createElement("canvas")
+    canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height)
+    const ctx = canvas.getContext("2d")!
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height)
+    await page.render({ canvasContext: ctx, viewport: vp }).promise
+    const jpegBytes: ArrayBuffer = await new Promise(res => canvas.toBlob(b => b!.arrayBuffer().then(res), "image/jpeg", jpeg))
+    const img = await outDoc.embedJpg(jpegBytes)
+    const pg = outDoc.addPage([vp0.width, vp0.height])
+    pg.drawImage(img, { x: 0, y: 0, width: vp0.width, height: vp0.height })
+  }
+  return outDoc.save({ useObjectStreams: true })
+}
+
+function MergeTab({ cropperReady, pdfJsReady }: { cropperReady: boolean; pdfJsReady: boolean }) {
+  const { t } = useT()
   const [entries, setEntries]   = useState<MergeEntry[]>([])
   const [filename, setFilename] = useState("output")
+  const [quality, setQuality]   = useState<"original" | Quality>("original")
   const [saved, setSaved]       = useState<string[]>([])
   const [status, setStatus]     = useState<{ msg: string; type: "" | "error" | "success" }>({ msg: "", type: "" })
   const [progress, setProgress] = useState(-1)
@@ -247,7 +282,9 @@ function MergeTab({ cropperReady }: { cropperReady: boolean }) {
         }
       }
       setProgress(95)
-      const bytes = await pdfDoc.save({ useObjectStreams: true })
+      let bytes = await pdfDoc.save({ useObjectStreams: true })
+      // Optional compression, chosen at download time.
+      if (quality !== "original") bytes = await compressPdfBytes(bytes, quality)
       const name  = (filename.trim() || "output").replace(/\.pdf$/i, "") + ".pdf"
       triggerDownload(bytes, name)
       setProgress(100)
@@ -355,6 +392,19 @@ function MergeTab({ cropperReady }: { cropperReady: boolean }) {
             <span className="pr-2 text-xs text-[var(--text-3)]">.pdf</span>
             <button onClick={saveName} title="Save filename" className="border-l border-[var(--border)] px-3 py-2.5 text-[var(--text-3)] hover:text-[var(--highlight-text)] transition-colors flex items-center"><Icon name="star_border" size={16} /></button>
           </div>
+          {/* Compression option — applied when downloading */}
+          <select
+            value={quality}
+            onChange={e => setQuality(e.target.value as "original" | Quality)}
+            disabled={!pdfJsReady}
+            title={t("pdf.quality")}
+            className="rounded-lg border border-[var(--border)] bg-[var(--bg-2)] px-2 py-2.5 text-[0.8rem] text-[var(--text)] outline-none focus:border-[var(--text-2)] disabled:opacity-40"
+          >
+            <option value="original">{t("pdf.qualityOriginal")}</option>
+            <option value="high">{t("pdf.qualityHigh")}</option>
+            <option value="balanced">{t("pdf.qualityBalanced")}</option>
+            <option value="small">{t("pdf.qualitySmall")}</option>
+          </select>
           <button onClick={handleDownload} disabled={building}
             className={cn("px-5 py-2.5 rounded-lg bg-[var(--text)] text-[var(--bg)] text-sm font-semibold whitespace-nowrap transition-all", building ? "opacity-50 cursor-not-allowed" : "hover:opacity-80")}>
             {building ? "Building..." : "↓ Download PDF"}
@@ -380,155 +430,6 @@ function MergeTab({ cropperReady }: { cropperReady: boolean }) {
         }}
         onCancel={() => { setCropSrc(null); setEditIdx(null) }} />
     </>
-  )
-}
-
-// ─── Tab: Compress ────────────────────────────────────────────────────────────
-
-type Quality = "high" | "balanced" | "small"
-const QUALITY: Record<Quality, { scale: number; jpeg: number; label: string; desc: string }> = {
-  high:     { scale: 2.0, jpeg: 0.90, label: "High",     desc: "Best quality" },
-  balanced: { scale: 1.5, jpeg: 0.78, label: "Balanced", desc: "Recommended" },
-  small:    { scale: 1.2, jpeg: 0.62, label: "Small",    desc: "Smallest file" },
-}
-
-type CompressEntry = { id: number; file: File; state: "pending" | "compressing" | "done" | "error"; result?: { bytes: Uint8Array; saving: number }; error?: string }
-let compressIdCtr = 0
-
-function CompressTab({ pdfJsReady }: { pdfJsReady: boolean }) {
-  const [entries, setEntries]   = useState<CompressEntry[]>([])
-  const [quality, setQuality]   = useState<Quality>("balanced")
-  const [running, setRunning]   = useState(false)
-  const [dragOver, setDragOver] = useState(false)
-
-  function addFiles(files: File[]) {
-    const valid = files.filter(f => f.type === "application/pdf")
-    setEntries(prev => [...prev, ...valid.map(f => ({ id: ++compressIdCtr, file: f, state: "pending" as const }))])
-  }
-
-  function removeEntry(id: number) { setEntries(prev => prev.filter(e => e.id !== id)) }
-
-  async function compressEntry(entry: CompressEntry): Promise<void> {
-    const { scale, jpeg } = QUALITY[quality]
-    setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, state: "compressing" } : e))
-    try {
-      const pdfjsLib = (window as any).pdfjsLib
-      const buf = await entry.file.arrayBuffer()
-      const pdfSrc = await pdfjsLib.getDocument({ data: new Uint8Array(buf) }).promise
-      const { PDFDocument } = await import("pdf-lib")
-      const outDoc = await PDFDocument.create()
-      for (let p = 1; p <= pdfSrc.numPages; p++) {
-        const page = await pdfSrc.getPage(p)
-        const vp0  = page.getViewport({ scale: 1 })
-        const vp   = page.getViewport({ scale })
-        const canvas = document.createElement("canvas")
-        canvas.width = Math.round(vp.width); canvas.height = Math.round(vp.height)
-        const ctx = canvas.getContext("2d")!
-        ctx.fillStyle = "#ffffff"; ctx.fillRect(0, 0, canvas.width, canvas.height)
-        await page.render({ canvasContext: ctx, viewport: vp }).promise
-        const jpegBytes: ArrayBuffer = await new Promise(res => canvas.toBlob(b => b!.arrayBuffer().then(res), "image/jpeg", jpeg))
-        const img = await outDoc.embedJpg(jpegBytes)
-        const pw = vp0.width, ph = vp0.height
-        const pg = outDoc.addPage([pw, ph])
-        pg.drawImage(img, { x: 0, y: 0, width: pw, height: ph })
-      }
-      const outBytes = await outDoc.save({ useObjectStreams: true })
-      const saving = Math.round((1 - outBytes.byteLength / entry.file.size) * 100)
-      if (saving <= 0) { setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, state: "error", error: "Already fully compressed — can't shrink further." } : e)); return }
-      setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, state: "done", result: { bytes: outBytes, saving } } : e))
-    } catch (err: unknown) {
-      setEntries(prev => prev.map(e => e.id === entry.id ? { ...e, state: "error", error: err instanceof Error ? err.message : String(err) } : e))
-    }
-  }
-
-  async function compressAll() {
-    if (running || !pdfJsReady) return
-    const pending = entries.filter(e => e.state === "pending")
-    if (!pending.length) return
-    setRunning(true)
-    for (const e of pending) await compressEntry(e)
-    setRunning(false)
-  }
-
-  return (
-    <div className="flex-1 min-h-0 overflow-y-auto px-5 py-5 flex flex-col gap-4">
-
-      {/* Drop zone */}
-      <div
-        onDragOver={e => { e.preventDefault(); setDragOver(true) }}
-        onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(false) }}
-        onDrop={e => { e.preventDefault(); setDragOver(false); addFiles(Array.from(e.dataTransfer.files)) }}
-        onClick={() => document.getElementById("compressInput")?.click()}
-        className={cn("border-2 border-dashed rounded-xl py-8 text-center cursor-pointer transition-all", dragOver ? "border-[var(--highlight)] bg-[var(--highlight)]/5" : "border-[var(--border)] hover:border-[var(--text-3)] hover:bg-[var(--bg-2)]")}
-      >
-        <div className="text-[var(--text-3)] mb-2"><Icon name="compress" size={36} /></div>
-        <p className="text-sm font-medium text-[var(--text)]">Drop PDFs here</p>
-        <p className="text-xs text-[var(--text-3)] mt-1">Multiple files supported</p>
-        <input id="compressInput" type="file" multiple accept=".pdf,application/pdf" className="hidden"
-          onChange={e => { addFiles(Array.from(e.target.files ?? [])); e.target.value = "" }} />
-      </div>
-
-      {/* Quality selector */}
-      <div className="flex flex-col gap-2">
-        <p className="label-xs">Quality</p>
-        <div className="grid grid-cols-3 gap-2">
-          {(Object.entries(QUALITY) as [Quality, typeof QUALITY[Quality]][]).map(([key, q]) => (
-            <button key={key} onClick={() => setQuality(key)}
-              className={cn("py-2.5 rounded-lg border text-sm font-medium transition-all flex flex-col items-center gap-0.5",
-                quality === key
-                  ? "border-[var(--text)] bg-[var(--text)] text-[var(--bg)]"
-                  : "border-[var(--border)] text-[var(--text-2)] hover:border-[var(--text-2)] hover:text-[var(--text)]"
-              )}>
-              {q.label}
-              <span className={cn("text-[0.62rem] font-normal", quality === key ? "text-[var(--bg)]/70" : "text-[var(--text-3)]")}>{q.desc}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Actions */}
-      {entries.length > 0 && (
-        <div className="flex gap-2">
-          <button onClick={compressAll} disabled={running || !pdfJsReady}
-            className={cn("flex-1 py-2.5 rounded-lg bg-[var(--text)] text-[var(--bg)] text-sm font-semibold transition-all", (running || !pdfJsReady) ? "opacity-50 cursor-not-allowed" : "hover:opacity-80")}>
-            {running ? "Compressing..." : "Compress All"}
-          </button>
-          <button onClick={() => setEntries([])} className="px-4 py-2.5 rounded-lg border border-[var(--border)] text-sm text-[var(--text-3)] hover:text-red-400 hover:border-red-400/50 transition-colors">Clear</button>
-        </div>
-      )}
-
-      {/* File list */}
-      <div className="flex flex-col gap-2">
-        {entries.map(entry => (
-          <div key={entry.id} className={cn("border rounded-lg overflow-hidden bg-[var(--bg-2)]", entry.state === "done" ? "border-green-500/40" : entry.state === "error" ? "border-red-400/40" : "border-[var(--border)]")}>
-            <div className="flex items-center gap-3 px-3 py-2.5">
-              <Icon name="description" size={22} className="text-[var(--text-3)] shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-[var(--text)] truncate">{entry.file.name}</p>
-                <p className="text-[0.65rem] text-[var(--text-3)]">{fmt(entry.file.size)}</p>
-              </div>
-              {entry.state === "compressing" && <span className="text-xs text-[var(--text-3)]">Compressing...</span>}
-              {entry.state === "pending"     && <button onClick={() => removeEntry(entry.id)} className="text-[var(--text-3)] hover:text-red-400 transition-colors flex items-center"><Icon name="close" size={16} /></button>}
-            </div>
-            {entry.state === "done" && entry.result && (
-              <div className="flex items-center gap-3 px-3 py-2 border-t border-[var(--border)] bg-[var(--surface)]">
-                <span className="text-xs text-[var(--text-3)] flex-1">{fmt(entry.file.size)} → {fmt(entry.result.bytes.byteLength)}</span>
-                <span className="text-xs font-semibold text-green-500">-{entry.result.saving}%</span>
-                <button onClick={() => triggerDownload(entry.result!.bytes, entry.file.name)}
-                  className="px-3 py-1 rounded bg-[var(--text)] text-[var(--bg)] text-xs font-medium hover:opacity-80 transition-opacity">
-                  ↓ Download
-                </button>
-              </div>
-            )}
-            {entry.state === "error" && (
-              <div className="px-3 py-2 border-t border-red-400/30 bg-red-500/5">
-                <p className="text-xs text-red-400">{entry.error}</p>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
   )
 }
 
@@ -1209,9 +1110,10 @@ function ScanModal({ imgSrc, onApply, onCancel }: {
 
 // ─── Page shell ───────────────────────────────────────────────────────────────
 
-type Tab = "merge" | "compress" | "docs" | "rename"
+type Tab = "merge" | "docs"
 
 export default function PDFPage() {
+  const { t } = useT()
   const [tab, setTab]                   = useState<Tab>("docs")
   const [cropperReady, setCropperReady] = useState(false)
   const [pdfJsReady, setPdfJsReady]     = useState(false)
@@ -1235,10 +1137,8 @@ export default function PDFPage() {
         <PageHeader title="PDF" right={
           <PillTabs
             options={[
-              { value: "docs"     as Tab, label: "Docs" },
-              { value: "merge"    as Tab, label: "Merge" },
-              { value: "rename"   as Tab, label: "Rename" },
-              { value: "compress" as Tab, label: "Compress" },
+              { value: "docs"     as Tab, label: t("pdf.tabDocs") },
+              { value: "merge"    as Tab, label: t("pdf.tabMerge") },
             ]}
             value={tab}
             onChange={setTab}
@@ -1246,9 +1146,7 @@ export default function PDFPage() {
         } />
 
         <ToolContent>
-          {tab === "merge"    && <MergeTab    cropperReady={cropperReady} />}
-          {tab === "rename"   && <RenameTab />}
-          {tab === "compress" && <CompressTab pdfJsReady={pdfJsReady} />}
+          {tab === "merge"    && <MergeTab    cropperReady={cropperReady} pdfJsReady={pdfJsReady} />}
           {tab === "docs"     && <DocsTab     cropperReady={cropperReady} pdfJsReady={pdfJsReady} serial={serial} setSerial={setSerial} name={name} setName={setName} />}
         </ToolContent>
       </div>

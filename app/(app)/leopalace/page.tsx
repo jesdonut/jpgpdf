@@ -6,6 +6,9 @@ import { cn } from "@/lib/cn"
 import { PageHeader, PageContent } from "@/components/PageHeader"
 import { Icon } from "@/components/Icon"
 import SpellPanel from "@/components/extract/SpellPanel"
+import MemoPanel from "@/components/extract/MemoPanel"
+import UtilityTracker from "@/components/extract/UtilityTracker"
+import { useT } from "@/lib/i18n"
 
 type CopiedKey = keyof GuidebookData | "all" | null
 
@@ -39,6 +42,7 @@ function AddressLinks({ address }: { address: string }) {
 // ─── Single extraction panel (URL + postal) ───────────────────────────────────
 
 function UrlPanel({ label }: { label?: string }) {
+  const { t } = useT()
   const [url, setUrl]           = useState("")
   const [loading, setLoading]   = useState(false)
   const [data, setData]         = useState<GuidebookData | null>(null)
@@ -141,7 +145,7 @@ function UrlPanel({ label }: { label?: string }) {
           onClick={run} disabled={loading || !url.trim()}
           className="px-4 py-2.5 rounded bg-[var(--text)] text-[var(--bg)] text-sm font-semibold shrink-0 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {loading ? "..." : "Extract"}
+          {loading ? "..." : t("common.extract")}
         </button>
       </div>
 
@@ -159,7 +163,7 @@ function UrlPanel({ label }: { label?: string }) {
             <button onClick={copyAll}
               className={cn("shrink-0 text-[0.72rem] font-medium transition-all mt-1",
                 copied === "all" ? "text-green-400" : "text-[var(--text-3)] hover:text-[var(--text)]")}>
-              {copied === "all" ? "Copied!" : "Copy all"}
+              {copied === "all" ? t("common.copied") : t("common.copyAll")}
             </button>
           </div>
 
@@ -180,7 +184,7 @@ function UrlPanel({ label }: { label?: string }) {
                 <button onClick={() => copy(key, value)}
                   className={cn("shrink-0 text-[0.65rem] transition-all",
                     copied === key ? "text-green-400" : "text-[var(--text-3)] hover:text-[var(--text)]")}>
-                  {copied === key ? "Copied" : "Copy"}
+                  {copied === key ? t("common.copied") : t("common.copy")}
                 </button>
               )}
             </div>
@@ -191,7 +195,7 @@ function UrlPanel({ label }: { label?: string }) {
       {/* Postal lookup */}
       <div className="border-t border-[var(--border)] pt-5 flex flex-col gap-3">
         <div className="flex items-center justify-between">
-          <p className="label-xs">Postal code</p>
+          <p className="label-xs">{t("leo.postal")}</p>
           <div className="flex gap-1 p-0.5 rounded bg-[var(--bg-2)] border border-[var(--border)]">
             {(["code", "address"] as const).map(m => (
               <button
@@ -200,7 +204,7 @@ function UrlPanel({ label }: { label?: string }) {
                 className={cn("px-2 py-0.5 rounded text-[0.65rem] font-medium transition-colors",
                   postalMode === m ? "bg-[var(--text)] text-[var(--bg)]" : "text-[var(--text-3)] hover:text-[var(--text)]")}
               >
-                {m === "code" ? "〒 Code" : "住所から"}
+                {m === "code" ? t("leo.postalByCode") : t("leo.postalByAddress")}
               </button>
             ))}
           </div>
@@ -224,7 +228,7 @@ function UrlPanel({ label }: { label?: string }) {
               onClick={() => runPostal()} disabled={postalLoading || !postal.trim()}
               className="px-4 py-2.5 rounded bg-[var(--text)] text-[var(--bg)] text-sm font-semibold shrink-0 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {postalLoading ? "..." : "Look up"}
+              {postalLoading ? "..." : t("common.lookup")}
             </button>
           </div>
         ) : (
@@ -236,7 +240,7 @@ function UrlPanel({ label }: { label?: string }) {
                   "text-[var(--text)] text-sm placeholder:text-[var(--text-3)]",
                   "outline-none focus:border-[var(--text)] transition-colors"
                 )}
-                placeholder="住所（例: 横浜市西区みなとみらい）"
+                placeholder={t("leo.addressPlaceholder")}
                 value={addrText}
                 onChange={e => setAddrText(e.target.value)}
                 onKeyDown={e => e.key === "Enter" && runPostalByAddress()}
@@ -245,10 +249,10 @@ function UrlPanel({ label }: { label?: string }) {
                 onClick={runPostalByAddress} disabled={postalLoading || !addrText.trim()}
                 className="px-4 py-2.5 rounded bg-[var(--text)] text-[var(--bg)] text-sm font-semibold shrink-0 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {postalLoading ? "..." : "Search"}
+                {postalLoading ? "..." : t("common.search")}
               </button>
             </div>
-            <p className="text-[0.68rem] text-[var(--text-3)]">区・町名まで入れると精度が上がります（市名だけでは特定できません）。</p>
+            <p className="text-[0.68rem] text-[var(--text-3)]">{t("leo.addressHint")}</p>
           </div>
         )}
 
@@ -282,23 +286,32 @@ function UrlPanel({ label }: { label?: string }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LeopalacePage() {
+  const { t } = useT()
   return (
     <div>
       <PageHeader title="Leopalace" />
       <PageContent>
         <div className="flex flex-col lg:flex-row gap-8 items-start">
           {/* LEFT: name spelling */}
-          <aside className="w-full lg:w-[340px] shrink-0">
+          <aside className="w-full lg:w-[340px] shrink-0 flex flex-col gap-6">
             <SpellPanel />
+            <div className="h-px bg-[var(--border)]" />
+            <MemoPanel />
+            <div className="h-px bg-[var(--border)]" />
+            <div className="flex flex-col gap-3">
+              <p className="label-xs">{t("leo.utilTitle")}</p>
+              <UtilityTracker title={t("leo.moveFrom")} storageKey="leo_utility_from" mode="stop" />
+              <UtilityTracker title={t("leo.moveTo")} storageKey="leo_utility_to" mode="start" />
+            </div>
           </aside>
 
           <div className="hidden lg:block w-px self-stretch bg-[var(--border)] shrink-0" />
 
           {/* RIGHT: guidebook extraction — 引越し元 / 引越し先 */}
           <div className="flex-1 min-w-0 flex flex-col md:flex-row gap-6">
-            <UrlPanel label="引越し元（現住所）" />
+            <UrlPanel label={t("leo.moveFrom")} />
             <div className="hidden md:block w-px bg-[var(--border)] shrink-0" />
-            <UrlPanel label="引越し先（新住所）" />
+            <UrlPanel label={t("leo.moveTo")} />
           </div>
         </div>
       </PageContent>

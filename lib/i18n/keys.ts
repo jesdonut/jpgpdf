@@ -1,0 +1,101 @@
+// English source strings — the reference the per-language files translate FROM.
+// One flat key → English map. Proper nouns (Leopalace, PDF, Romaji, 〒) and the
+// short Japanese data labels (住所 / 電気 / ガス …) are intentionally NOT here:
+// they stay verbatim in every language because they mirror the Japanese source
+// documents and end up in copied output / filenames.
+
+export const EN = {
+  // nav / chrome
+  "nav.builder": "Builder",
+  "theme.light": "Light",
+  "theme.dark": "Dark",
+  "lang.label": "Language",
+
+  // common actions
+  "common.copy": "Copy",
+  "common.copied": "Copied",
+  "common.copyAll": "Copy all",
+  "common.search": "Search",
+  "common.lookup": "Look up",
+  "common.extract": "Extract",
+  "common.add": "Add",
+  "common.apply": "Apply",
+  "common.cancel": "Cancel",
+  "common.clear": "Clear",
+  "common.clearAll": "Clear all",
+  "common.browse": "Browse",
+  "common.save": "Save",
+  "common.saveAll": "Save all",
+  "common.go": "Go",
+
+  // Leopalace page
+  "leo.spellTitle": "Spell / Romaji (name reading)",
+  "leo.spellPlaceholder": "katakana → spell, text → romaji",
+  "leo.spelling": "Spelling",
+  "leo.romaji": "Romaji",
+  "leo.moveFrom": "Move-out (current address)",
+  "leo.moveTo": "Move-in (new address)",
+  "leo.postal": "Postal code",
+  "leo.postalByCode": "〒 Code",
+  "leo.postalByAddress": "By address",
+  "leo.addressPlaceholder": "Address (e.g. Yokohama-shi Nishi-ku Minato Mirai)",
+  "leo.memoTitle": "Memo",
+  "leo.memoPlaceholder": "phone number, birthdate, etc.",
+  "leo.utilTitle": "Utility calls (for moves)",
+  "leo.electricity": "Electricity",
+  "leo.gas": "Gas",
+  "leo.water": "Water",
+  "leo.tachiai": "Gas attendance (立会)",
+  "leo.tachiaiReq": "Required",
+  "leo.tachiaiNo": "Not required",
+  "leo.addressHint": "Add the ward/town for accuracy — a city name alone can't be resolved.",
+
+  // PDF page
+  "pdf.tabDocs": "Docs",
+  "pdf.tabRename": "Rename",
+  "pdf.tabMerge": "Merge",
+  "pdf.tabCompress": "Compress",
+  "pdf.serialNo": "Serial No.",
+  "pdf.name": "Name",
+  "pdf.outputFilename": "Output filename",
+  "pdf.saveFilename": "Save filename",
+  "pdf.dropPdfs": "Drop PDFs here",
+  "pdf.dropFiles": "Drop files here",
+  "pdf.multipleFiles": "Multiple files supported",
+  "pdf.quality": "Quality",
+  "pdf.qualityOriginal": "Original",
+  "pdf.qualitySmall": "Small",
+  "pdf.qualityBalanced": "Balanced",
+  "pdf.qualityHigh": "High",
+  "pdf.compressing": "Compressing…",
+  "pdf.cropStraighten": "Crop & Straighten",
+  "pdf.crop": "Crop",
+  "pdf.straighten": "Straighten",
+  "pdf.perspective": "Perspective correct",
+  "pdf.rotateLeft": "Rotate left",
+  "pdf.rotateRight": "Rotate right",
+  "pdf.removeSlot": "Remove this slot",
+  "pdf.includeCombined": "Include in combined PDF",
+  "pdf.docTypeName": "Document type name",
+
+  // Rename tab
+  "rename.patternLabel": "Output filename pattern",
+  "rename.preview": "Preview",
+  "rename.enterPattern": "(enter a pattern)",
+  "rename.files": "Files",
+  "rename.chooseFiles": "Click to choose files",
+  "rename.tokId": "ID",
+  "rename.tokName": "Name",
+  "rename.tokType": "Type",
+  "rename.tokDate": "Date",
+  "rename.tokYear": "Year",
+  "rename.tokMonth": "Month",
+  "rename.tokDay": "Day",
+
+  // Builder page
+  "builder.tabTable": "Table",
+  "builder.tabVersions": "Versions",
+  "builder.copyTable": "Copy table",
+} as const
+
+export type MsgKey = keyof typeof EN

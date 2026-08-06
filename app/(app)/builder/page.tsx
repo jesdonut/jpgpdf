@@ -3,9 +3,11 @@
 import { useRef, useState } from "react"
 import BuilderTable, { type BuilderTableHandle } from "@/components/builder/BuilderTable"
 import TemplatePanel from "@/components/builder/TemplatePanel"
+import RirekishoTab from "@/components/builder/RirekishoTab"
 import { extractVars } from "@/components/builder/templateUtils"
 import type { ColDef, Row } from "@/components/builder/types"
 import { PageHeader, PillTabs, ToolContent } from "@/components/PageHeader"
+import { useT } from "@/lib/i18n"
 
 const DEFAULT_COLS: ColDef[] = [
   { id: "col_a", label: "A", width: 160 },
@@ -16,10 +18,11 @@ const DEFAULT_COLS: ColDef[] = [
 const DEFAULT_ROWS: Row[] = Array.from({ length: 5 }, () => ({}))
 
 export default function BuilderPage() {
+  const { t } = useT()
   const [cols, setCols] = useState<ColDef[]>(DEFAULT_COLS)
   const [rows, setRows] = useState<Row[]>(DEFAULT_ROWS)
   const [template, setTemplate] = useState("")
-  const [tab, setTab] = useState<"table" | "versions">("table")
+  const [tab, setTab] = useState<"table" | "versions" | "rirekisho">("table")
   const tableRef = useRef<BuilderTableHandle>(null)
 
   function handleChange(newCols: ColDef[], newRows: Row[]) {
@@ -60,21 +63,28 @@ export default function BuilderPage() {
         <div className="flex items-center gap-3">
           <PillTabs
             options={[
-              { value: "table"    as const, label: "Table" },
-              { value: "versions" as const, label: "Versions", dot: hasTemplate },
+              { value: "table"     as const, label: t("builder.tabTable") },
+              { value: "versions"  as const, label: t("builder.tabVersions"), dot: hasTemplate },
+              { value: "rirekisho" as const, label: "履歴書" },
             ]}
             value={tab}
             onChange={setTab}
           />
-          <button onClick={() => tableRef.current?.addCol()}         className="text-[0.72rem] text-[var(--text-3)] hover:text-[var(--text)] transition-colors">+ Column</button>
-          <button onClick={() => tableRef.current?.addComputedCol()} className="text-[0.72rem] text-[var(--highlight-text)] hover:opacity-80 transition-opacity font-medium">+ Output column</button>
-          <button onClick={copyTable} className="text-[0.72rem] text-[var(--text-2)] hover:text-[var(--text)] transition-colors">Copy table</button>
-          <button onClick={clearAll}  className="text-[0.72rem] text-[var(--text-2)] hover:text-red-400 transition-colors">Clear</button>
+          {tab !== "rirekisho" && (
+            <>
+              <button onClick={() => tableRef.current?.addCol()}         className="text-[0.72rem] text-[var(--text-3)] hover:text-[var(--text)] transition-colors">+ Column</button>
+              <button onClick={() => tableRef.current?.addComputedCol()} className="text-[0.72rem] text-[var(--highlight-text)] hover:opacity-80 transition-opacity font-medium">+ Output column</button>
+              <button onClick={copyTable} className="text-[0.72rem] text-[var(--text-2)] hover:text-[var(--text)] transition-colors">{t("builder.copyTable")}</button>
+              <button onClick={clearAll}  className="text-[0.72rem] text-[var(--text-2)] hover:text-red-400 transition-colors">Clear</button>
+            </>
+          )}
         </div>
       } />
 
       <ToolContent className="overflow-auto">
-        {tab === "table" ? (
+        {tab === "rirekisho" ? (
+          <RirekishoTab />
+        ) : tab === "table" ? (
           <BuilderTable ref={tableRef} cols={cols} rows={rows} onChange={handleChange} />
         ) : (
           <div className="h-full flex flex-col">

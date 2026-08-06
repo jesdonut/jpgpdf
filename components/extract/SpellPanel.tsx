@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { cn } from "@/lib/cn"
+import { useT } from "@/lib/i18n"
 
 // Katakana → example-word spelling, for reading a name out loud on the phone.
 const KANA_WORDS: Record<string, string> = {
@@ -100,6 +101,7 @@ async function fetchRomaji(text: string): Promise<string> {
 type SpellResult = { mode: "spell"; chars: string[] } | { mode: "romaji"; text: string }
 
 export default function SpellPanel() {
+  const { t } = useT()
   const [input, setInput]       = useState("")
   const [result, setResult]     = useState<SpellResult | null>(null)
   const [loading, setLoading]   = useState(false)
@@ -137,31 +139,31 @@ export default function SpellPanel() {
 
   return (
     <div className="flex flex-col gap-3">
-      <p className="label-xs">Spell / Romaji（名前の読み）</p>
+      <p className="label-xs">{t("leo.spellTitle")}</p>
 
       <div className="flex gap-2">
         <input
           value={input}
           onChange={e => { setInput(e.target.value); setResult(null) }}
           onKeyDown={e => { if (e.key === "Enter") run() }}
-          placeholder="katakana → spell, text → romaji"
+          placeholder={t("leo.spellPlaceholder")}
           suppressHydrationWarning
           className="flex-1 bg-[var(--bg-2)] border border-[var(--border)] rounded-lg px-3 py-2 text-sm text-[var(--text)] outline-none focus:border-[var(--text-2)] placeholder:text-[var(--text-3)] min-w-0"
         />
         <button onClick={run} disabled={loading || !input.trim()}
           className="px-3 py-2 rounded-lg bg-[var(--text)] text-[var(--bg)] text-[0.78rem] font-semibold hover:opacity-80 disabled:opacity-40 transition-opacity shrink-0">
-          {loading ? "…" : "Go"}
+          {loading ? "…" : t("common.go")}
         </button>
       </div>
 
       {result && (
         <div className="border border-[var(--border)] rounded-lg overflow-hidden">
           <div className="flex items-center justify-between px-3 py-2 bg-[var(--surface)] border-b border-[var(--border)]">
-            <span className="label-xs">{result.mode === "spell" ? "Spelling" : "Romaji"}</span>
+            <span className="label-xs">{result.mode === "spell" ? t("leo.spelling") : t("leo.romaji")}</span>
             <button onClick={copyAll}
               className={cn("text-[0.65rem] px-2 py-0.5 rounded border transition-colors",
                 copied ? "border-green-400 text-green-500" : "border-[var(--border)] text-[var(--text-3)] hover:text-[var(--text)] hover:border-[var(--text-2)]")}>
-              {copied ? "Copied!" : "Copy"}
+              {copied ? t("common.copied") : t("common.copy")}
             </button>
           </div>
           {result.mode === "spell" ? (
